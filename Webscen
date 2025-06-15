@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# 🛡️ Advanced Web Vulnerability Scanner with Email Support (Gmail SMTP)
+# ⚠️ For authorized and ethical use only.
+
+echo "🌐 ওয়েবসাইট টার্গেট দিন (e.g., http://example.com):"
+read target
+
+echo "📧 আপনার ইমেইল (খালি রাখলে রিপোর্ট সেভ হবে কিন্তু পাঠানো হবে না):"
+read email
+
+timestamp=$(date +%Y%m%d_%H%M%S)
+report_dir=~/webscan_reports/scan_$timestamp
+mkdir -p $report_dir
+
+# STEP 1: Nikto
+echo "🔍 Nikto দিয়ে স্ক্যান শুরু হচ্ছে..."
+nikto -host $target -Format htm -output $report_dir/nikto.html
+
+# STEP 2: Nmap
+echo "🔍 Nmap দিয়ে সার্ভিস ও ভার্সন স্ক্যান চলছে..."
+nmap -sV -T4 -Pn $target -oN $report_dir/nmap.txt
+
+# STEP 3: Dirb
+echo "🔍 Dirb দিয়ে হিডেন ডিরেক্টরি খোঁজা হচ্ছে..."
+dirb $target -o $report_dir/dirb.txt
+
+# STEP 4: Extract Nmap services
+echo "🧠 সার্ভিস লিস্ট তৈরি করা হচ্ছে..."
+grep -E "^[0-9]+/tcp" $report_dir/nmap.txt | awk '{print $3, $4}' > $report_dir/services.txt
+
+# STEP 5: Compress Reports
+zip -r $report_dir.zip $report_dir > /dev/null
+
+# STEP 6: Email Report if email provided
+if [[ "$email" != "" ]]; then
+    echo "📤 রিপোর্ট পাঠানো হচ্ছে $email এ..."
+
+    echo "🛡️ Web Vulnerability Scan Report for $target is attached." | mutt -s "🧪 WebScan Report [$target]" -a "$report_dir.zip" -- "$email"
+
+    echo "✅ রিপোর্ট সফলভাবে পাঠানো হয়েছে!"
+else
+    echo "📁 রিপোর্ট সংরক্ষিত: $report_dir"
+    echo "📬 ইমেইল পাঠানো হয়নি (ইমেইল খালি ছিল)"
+fi
